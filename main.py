@@ -34,8 +34,8 @@ def main(portname):
     ser = serial.Serial(
         port=portname,
         baudrate=9600,
-        bytesize=serial.SEVENBITS,
-        parity=serial.PARITY_EVEN,
+        bytesize=serial.EIGHTBITS,
+        parity=serial.PARITY_NONE,
         stopbits=serial.STOPBITS_ONE
     )
     currency_dict = {1: 0.5, 2: 1, 3: 2}
