@@ -9,8 +9,6 @@ def read(ser):
     out = []
     while ser.inWaiting() > 0:
         out.append(ser.read(1))
-    print("Answer:")
-    print([binascii.hexlify(b).decode() for b in out])
     return out
 
 
@@ -22,9 +20,6 @@ def send(ser, cmd):
         cs += b
     send[4] = cs % 256
 
-    send_bytes = [b.to_bytes(1, 'big') for b in send]
-    print("Sent bytes:")
-    print([binascii.hexlify(b).decode() for b in send_bytes])
     ser.write(send)
     time.sleep(0.1)
     return read(ser)
@@ -41,6 +36,8 @@ def main(portname):
     currency_dict = {1: 0.5, 2: 1, 3: 2}
     amount = None
 
+    send(ser, 0x02)
+
     print("Order amount to pay?")
 
     while ser.isOpen():
@@ -48,6 +45,7 @@ def main(portname):
             if amount is None:
                 amount = float(input())
                 print("Still to be paid:", amount)
+                send(ser, 0x01)
 
             out = []
             while ser.inWaiting() > 0:
@@ -63,7 +61,7 @@ def main(portname):
                 print("Amount collected", status)
                 if amount <= 0:
                     print("Currency to be returned", -amount)
-                    print("-------- Here disable de coin acceptor --------")
+                    send(ser, 0x02)
                 else:
                     print("Still to be paid:", amount)
 
