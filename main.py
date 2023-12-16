@@ -31,65 +31,90 @@ def send(ser, cmd):
     return read(ser)
 
 
-def main(portname):
-    ser = serial.Serial(
-        port=portname,
+def main(portname_coin, portname_bill):
+    ser_coin = serial.Serial(
+        port=portname_coin,
         baudrate=9600,
         bytesize=serial.EIGHTBITS,
         parity=serial.PARITY_NONE,
         stopbits=serial.STOPBITS_ONE
     )
-    # currency_dict = {1: 0.5, 2: 1, 3: 2}
-    currency_dict = {254: 2000, 255: 1000}
+
+    ser_bill = serial.Serial(
+        port=portname_bill,
+        baudrate=9600,
+        bytesize=serial.EIGHTBITS,
+        parity=serial.PARITY_NONE,
+        stopbits=serial.STOPBITS_ONE
+    )
+
+    currency_dict_coin = {1: 0.5, 2: 1, 3: 2}
+    currency_dict_bill = {254: 2000, 255: 1000}
     amount = None
 
     print("Order amount to pay?")
     out = []
     while not out:
-        ser.write([0x5e])
-        while ser.inWaiting() > 0:
-            out.append(ser.read(1))
+        ser_bill.write([0x5e])
+        while ser_bill.inWaiting() > 0:
+            out.append(ser_bill.read(1))
 
-    while ser.isOpen():
+    send(ser_coin, 0x02)
+
+    while ser_coin.isOpen() and ser_bill.isOpen():
         try:
             if amount is None:
                 amount = float(input())
                 print("Still to be paid:", amount)
-                ser.write([0x3e])
+                ser_bill.write([0x3e])
 
-            ser.write([0x02])
+            ser_bill.write([0x02])
 
             out = []
-            while ser.inWaiting() > 0:
-                out.append(ser.read(1))
+            while ser_bill.inWaiting() > 0:
+                out.append(ser_bill.read(1))
 
-            if not out:
-                continue
+            if out:
+                if len(out) > 1 and (ord(out[1]) in [0xfe, 0xff]):
+                    status = currency_dict_bill[ord(out[1])]
 
-            if len(out) <= 1 or (not (ord(out[1]) in [0xfe, 0xff])):
-                continue
+                    if amount is not None:
+                        amount -= status
+                        print("Amount collected", status)
+                        if amount <= 0:
+                            out = []
+                            while not out:
+                                ser_bill.write([0x5e])
+                                while ser_bill.inWaiting() > 0:
+                                    out.append(ser_bill.read(1))
+                            print("Currency to be returned", -amount)
+                            break
+                        else:
+                            print("Still to be paid:", amount)
+            else:
+                while ser_bill.inWaiting() > 0:
+                    out.append(ser_coin.read(1))
 
-            status = currency_dict[ord(out[1])]
+                if not out:
+                    continue
 
-            if amount is not None:
-                amount -= status
-                print("Amount collected", status)
-                if amount <= 0:
-                    out = []
-                    while not out:
-                        ser.write([0x5e])
-                        while ser.inWaiting() > 0:
-                            out.append(ser.read(1))
-                    print("Currency to be returned", -amount)
-                    break
-                else:
-                    print("Still to be paid:", amount)
+                status = currency_dict_coin[ord(out[3])]
+
+                if amount is not None:
+                    amount -= status
+                    print("Amount collected", status)
+                    if amount <= 0:
+                        print("Currency to be returned", -amount)
+                        send(ser_coin, 0x02)
+                        break
+                    else:
+                        print("Still to be paid:", amount)
 
         except KeyboardInterrupt:
             print('\n\nGoodbye!')
-            print('Port {:s} closed'.format(portname))
+            # print('Port {:s} closed'.format(portname))
             break
 
 
 if __name__ == "__main__":
-    main(sys.argv[1])
+    main(sys.argv[1], sys.argv[2])
