@@ -9,8 +9,8 @@ def read(ser):
     out = []
     while ser.inWaiting() > 0:
         out.append(ser.read(1))
-    print("Answer:")
-    print([binascii.hexlify(b).decode() for b in out])
+    # print("Answer:")
+    # print([binascii.hexlify(b).decode() for b in out])
     return out
 
 
@@ -23,8 +23,8 @@ def send(ser, cmd):
     send[4] = cs % 256
 
     send_bytes = [b.to_bytes(1, 'big') for b in send]
-    print("Sent bytes:")
-    print([binascii.hexlify(b).decode() for b in send_bytes])
+    # print("Sent bytes:")
+    # print([binascii.hexlify(b).decode() for b in send_bytes])
 
     ser.write(send)
     time.sleep(0.1)
@@ -67,6 +67,7 @@ def main(portname_coin, portname_bill):
                 amount = float(input())
                 print("Still to be paid:", amount)
                 ser_bill.write([0x3e])
+                send(ser_coin, 0x01)
 
             ser_bill.write([0x02])
 
@@ -76,6 +77,7 @@ def main(portname_coin, portname_bill):
 
             if out:
                 if len(out) > 1 and (ord(out[1]) in [0xfe, 0xff]):
+                    print(out)
                     status = currency_dict_bill[ord(out[1])]
 
                     if amount is not None:
@@ -87,12 +89,13 @@ def main(portname_coin, portname_bill):
                                 ser_bill.write([0x5e])
                                 while ser_bill.inWaiting() > 0:
                                     out.append(ser_bill.read(1))
+                            send(ser_coin, 0x02)
                             print("Currency to be returned", -amount)
                             break
                         else:
                             print("Still to be paid:", amount)
             else:
-                while ser_bill.inWaiting() > 0:
+                while ser_coin.inWaiting() > 0:
                     out.append(ser_coin.read(1))
 
                 if not out:
@@ -104,8 +107,13 @@ def main(portname_coin, portname_bill):
                     amount -= status
                     print("Amount collected", status)
                     if amount <= 0:
-                        print("Currency to be returned", -amount)
+                        out = []
+                        while not out:
+                            ser_bill.write([0x5e])
+                            while ser_bill.inWaiting() > 0:
+                                out.append(ser_bill.read(1))
                         send(ser_coin, 0x02)
+                        print("Currency to be returned", -amount)
                         break
                     else:
                         print("Still to be paid:", amount)
