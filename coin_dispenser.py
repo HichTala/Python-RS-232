@@ -13,14 +13,15 @@ def read(ser):
 
 
 def send(ser, cmd):
-    send = [0x90, 0x05, 0x00, 0x03, 0x00]
-    send[2] += cmd
-    cs = 0x00
-    for b in send:
-        cs += b
-    send[4] = cs % 256
+    ser.write(cmd)
+    time.sleep(0.1)
+    return read(ser)
 
-    ser.write(send)
+def reset(ser):
+    ser.write([0x70])
+    print(read(ser))
+    time.sleep(0.1)
+    ser.write([0x73])
     time.sleep(0.1)
     return read(ser)
 
@@ -36,9 +37,17 @@ def main(portname):
     currency_dict = {1: 0.5, 2: 1, 3: 20, 4: 50, 5: 100, 6: 200}
     amount = None
 
-    send(ser, 0x02)
+    while ser.isOpen():
+        print("it?")
+        iteration = int(input())
+        for i in range(iteration):
+            print(send(ser, [0x80]))
+            print(send(ser, [0x81]))
+            print(send(ser, [0x40]))
+            send(ser, [0x10])
+            time.sleep(0.1)
+        breakpoint()
 
-    print("Order amount to pay?")
 
     while ser.isOpen():
         try:
